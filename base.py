@@ -88,13 +88,9 @@ def get_graphlet_features(graphlet):
             result["myu%d_%d" % (lvl, lvl-1)] = tot/len(sub_g_a)
 
         temp = sub_g_a
-        if lvl <= 4:
-            sub_g_a = [key.values() for key in sub_g_a]
-        if lvl == 4:
-            last = []
-            for item in sub_g_a:
-                last.extend(item)
-            sub_g_a = last
+        sub_g_a = []
+        for item in [key.values() for key in temp]:
+            sub_g_a.extend(item)
         sub_g_b = temp
         lvl += 1
 
