@@ -37,7 +37,67 @@ def get_host_graphlet_dict_summ(cap_file):
 
     return graphlet_dict
 
+class Node():
+    def __init__(self, name):
+        self.name = name
+        self.forward = []
+        self.backward = []
 
+class Graphlet():
+    def __init__(self, name):
+        self.name = name
+        self.lvl_1 = []
+        self.lvl_2 = []
+        self.lvl_3 = []
+        self.lvl_4 = []
+        self.lvl_5 = []
+
+def get_from_list(obj_list, obj_name):
+    for obj in obj_list:
+        if obj.name == obj_name:
+            return obj
+    return None
+
+def get_host_graphlet_dict(cap_file):
+    graphlet_list = []
+    for packet in cap_file:
+        graphlet = get_from_list(graphlet_list, packet.source)
+        if graphlet is None:
+            graphlet = Graphlet(packet.source)
+            src_node = Node(packet.source)
+            graphlet.lvl_1.append(src_node)
+            graphlet_list.append(graphlet)
+
+        proto_node = get_from_list(graphlet.lvl_2, packet.protocol)
+        if proto_node is None:
+            proto_node = Node(packet.protocol)
+            proto_node.backward.append(src_node)
+            src_node.forward.append(proto_node)
+            graphlet.lvl_2.append(proto_node)
+
+        dst_node = get_from_list(graphlet.lvl_3, packet.protocol)
+        if dst_node is None:
+            dst_node = Node(packet.protocol)
+            dst_node.backward.append(proto_node)
+            proto_node.forward.append(dst_node)
+            graphlet.lvl_3.append(dst_node)
+
+        src_port, dst_port = get_ports_from_info(packet)
+        src_port_node = get_from_list(graphlet.lvl_4, src_port)
+        if src_port_node is None:
+            src_port_node = Node(src_port)
+            src_port_node.backward.append(dst_node)
+            dst_node.forward.append(src_port_node)
+            graphlet.lvl_4.append(src_port_node)
+
+        dst_port_node = get_from_list(graphlet.lvl_5, dst_port)
+        if dst_port_node is None:
+            dst_port_node = Node(dst_port)
+            dst_port_node.backward.append(src_port_node)
+            src_port_node.forward.append(dst_port_node)
+            graphlet.lvl_5.append(dst_port_node)
+
+    return graphlet_list
 
 # feature name map:
 # n - number of nodes
@@ -50,8 +110,8 @@ def get_graphlet_features(graphlet):
     sub_g_b = []
     result = {}
     lvl = 1
-    while lvl <= 5:
-        if lvl < 5:
+    while lvl < 5:
+        if lvl < 4:
             result["n%d" % lvl] = len(sub_g_a)
             result["o%d_%d" % (lvl, lvl+1)] = 0
             result["alpha%d_%d" % (lvl, lvl+1)] = 0
@@ -80,18 +140,19 @@ def get_graphlet_features(graphlet):
                     result["o%d_%d" % (lvl, lvl-1)] += 1
                 if cnt > result["alpha%d_%d" % (lvl, lvl-1)]:
                     result["alpha%d_%d" % (lvl, lvl-1)] = cnt
-                    if lvl < 5:
+                    if lvl < 4:
                         result["beta%d_%d" % (lvl, lvl-1)] = len(node.keys())
-                if lvl < 5 and node == alpha:
+                if lvl < 4 and node == alpha:
                     result["beta%d_%d" % (lvl, lvl+1)] = cnt
 
             result["myu%d_%d" % (lvl, lvl-1)] = tot/len(sub_g_a)
 
-        temp = sub_g_a
-        sub_g_a = []
-        for item in [key.values() for key in temp]:
-            sub_g_a.extend(item)
-        sub_g_b = temp
+        if lvl < 4:
+            temp = sub_g_a
+            sub_g_a = []
+            for item in [key.values() for key in temp]:
+                sub_g_a.extend(item)
+            sub_g_b = temp
         lvl += 1
 
     return result
