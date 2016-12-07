@@ -113,6 +113,7 @@ def get_graphlet_features(graphlet):
     return result
 
 
+# TODO - remove display filter (only TCP connection :\ ), write function that decides who is the host..
 capture_summaries = pyshark.FileCapture("Test28_Id1_Stream1_100.pcap", only_summaries=True, display_filter="tcp.flags.syn == 1 and tcp.flags.ack == 1")
 graphlet_list = get_host_graphlets(capture_summaries)
 feature_dict = {}
