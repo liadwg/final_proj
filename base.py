@@ -1,56 +1,29 @@
 import pyshark
 
 
-def get_ports_from_info(p_summ):
-    return p_summ.info.split(" ")[0].split("\\xe2\\x86\\x92")
-
-# host graphlet dict should look like this:
-# {
-#     host_ip: {
-#         protocol1: {..},
-#         protocol2: {
-#             dst_ip1: {...},
-#             dst_ip2: {
-#                 src_port1: {...},
-#                 src_port2: [
-#                     dst_port1, dst_port2, ...
-#                 ]
-#             }
-#         }
-#     }
-# }
-# srcIP - protocol - srcPort - dstPort - dstIP
-def get_host_graphlet_dict_summ(cap_file):
-    graphlet_dict = {}
-    for packet in cap_file:
-        if packet.source not in graphlet_dict.keys():
-            graphlet_dict[packet.source] = {}
-        if packet.protocol not in graphlet_dict[packet.source].keys():
-            graphlet_dict[packet.source][packet.protocol] = {}
-        if packet.destination not in graphlet_dict[packet.source][packet.protocol].keys():
-            graphlet_dict[packet.source][packet.protocol][packet.destination] = {}
-        src_port, dst_port = get_ports_from_info(packet)
-        if src_port not in graphlet_dict[packet.source][packet.protocol][packet.destination].keys():
-            graphlet_dict[packet.source][packet.protocol][packet.destination][src_port] = []
-        if dst_port not in graphlet_dict[packet.source][packet.protocol][packet.destination][src_port]:
-            graphlet_dict[packet.source][packet.protocol][packet.destination][src_port].append(dst_port)
-
-    return graphlet_dict
-
-class Node():
+class Node:
     def __init__(self, name):
         self.name = name
         self.forward = []
         self.backward = []
 
-class Graphlet():
-    def __init__(self, name):
+
+class Graphlet:
+    def __init__(self, name, num_of_levels):
         self.name = name
-        self.lvl_1 = []
-        self.lvl_2 = []
-        self.lvl_3 = []
-        self.lvl_4 = []
-        self.lvl_5 = []
+        self.levels = [[] for i in range(num_of_levels)]
+
+    def __repr__(self):
+        result = "Graphlet for %s:" % self.name
+        for i in range(len(self.levels)):
+            result += "\n\tlvl %d - %s" % (i+1, [node.name for node in self.levels[i]])
+
+        return result
+
+
+def get_ports_from_info(p_summ):
+    return p_summ.info.split(" ")[0].split("\\xe2\\x86\\x92")
+
 
 def get_from_list(obj_list, obj_name):
     for obj in obj_list:
@@ -58,44 +31,45 @@ def get_from_list(obj_list, obj_name):
             return obj
     return None
 
-def get_host_graphlet_dict(cap_file):
+
+def get_host_graphlets(cap_file):
     graphlet_list = []
     for packet in cap_file:
         graphlet = get_from_list(graphlet_list, packet.source)
         if graphlet is None:
-            graphlet = Graphlet(packet.source)
+            graphlet = Graphlet(packet.source, 5)
             src_node = Node(packet.source)
-            graphlet.lvl_1.append(src_node)
+            graphlet.levels[0].append(src_node)
             graphlet_list.append(graphlet)
 
-        proto_node = get_from_list(graphlet.lvl_2, packet.protocol)
+        proto_node = get_from_list(graphlet.levels[1], packet.protocol)
         if proto_node is None:
             proto_node = Node(packet.protocol)
             proto_node.backward.append(src_node)
             src_node.forward.append(proto_node)
-            graphlet.lvl_2.append(proto_node)
+            graphlet.levels[1].append(proto_node)
 
-        dst_node = get_from_list(graphlet.lvl_3, packet.protocol)
+        dst_node = get_from_list(graphlet.levels[2], packet.protocol)
         if dst_node is None:
             dst_node = Node(packet.protocol)
             dst_node.backward.append(proto_node)
             proto_node.forward.append(dst_node)
-            graphlet.lvl_3.append(dst_node)
+            graphlet.levels[2].append(dst_node)
 
         src_port, dst_port = get_ports_from_info(packet)
-        src_port_node = get_from_list(graphlet.lvl_4, src_port)
+        src_port_node = get_from_list(graphlet.levels[3], src_port)
         if src_port_node is None:
             src_port_node = Node(src_port)
             src_port_node.backward.append(dst_node)
             dst_node.forward.append(src_port_node)
-            graphlet.lvl_4.append(src_port_node)
+            graphlet.levels[3].append(src_port_node)
 
-        dst_port_node = get_from_list(graphlet.lvl_5, dst_port)
+        dst_port_node = get_from_list(graphlet.levels[4], dst_port)
         if dst_port_node is None:
             dst_port_node = Node(dst_port)
             dst_port_node.backward.append(src_port_node)
             src_port_node.forward.append(dst_port_node)
-            graphlet.lvl_5.append(dst_port_node)
+            graphlet.levels[4].append(dst_port_node)
 
     return graphlet_list
 
@@ -106,6 +80,7 @@ def get_host_graphlet_dict(cap_file):
 # alpha - max degree
 # beta - back degree of alpha
 def get_graphlet_features(graphlet):
+    # TODO - re-implement with new classes
     sub_g_a = [graphlet]
     sub_g_b = []
     result = {}
@@ -160,7 +135,11 @@ def get_graphlet_features(graphlet):
 
 
 capture_summaries = pyshark.FileCapture("Test28_Id1_Stream1_100.pcap", only_summaries=True, display_filter="tcp.flags.syn == 1 and tcp.flags.ack == 1")
-graphlet_dict = get_host_graphlet_dict_summ(capture_summaries)
+# graphlet_dict = get_host_graphlet_dict_summ(capture_summaries)
+# feature_dict = {}
+# for graphlet_host in graphlet_dict.keys():
+#     feature_dict[graphlet_host] = get_graphlet_features(graphlet_dict[graphlet_host])
+graphlet_list = get_host_graphlets(capture_summaries)
 feature_dict = {}
-for graphlet_host in graphlet_dict:
-    feature_dict[graphlet_host] = get_graphlet_features(graphlet_dict[graphlet_host])
+for graphlet in graphlet_list:
+    feature_dict[graphlet.name] = get_graphlet_features(graphlet)
