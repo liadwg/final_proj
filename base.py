@@ -80,65 +80,40 @@ def get_host_graphlets(cap_file):
 # alpha - max degree
 # beta - back degree of alpha
 def get_graphlet_features(graphlet):
-    # TODO - re-implement with new classes
-    sub_g_a = [graphlet]
-    sub_g_b = []
     result = {}
-    lvl = 1
-    while lvl < 5:
-        if lvl < 4:
-            result["n%d" % lvl] = len(sub_g_a)
-            result["o%d_%d" % (lvl, lvl+1)] = 0
-            result["alpha%d_%d" % (lvl, lvl+1)] = 0
-            tot = 0
-            alpha = None
-            for node in sub_g_a:
-                tot += len(node.keys())
-                if len(node.keys()) == 1:
-                    result["o%d_%d" % (lvl, lvl+1)] += 1
-                if len(node.keys()) > result["alpha%d_%d" % (lvl, lvl+1)]:
-                    result["alpha%d_%d" % (lvl, lvl+1)] = len(node.keys())
-                    alpha = node
-            result["myu%d_%d" % (lvl, lvl+1)] = tot/len(sub_g_a)
-
-        if lvl > 1:
-            result["o%d_%d" % (lvl, lvl-1)] = 0
-            result["alpha%d_%d" % (lvl, lvl-1)] = 0
-            tot = 0
-            for node in sub_g_a:
-                cnt = 0
-                for bnode in sub_g_b:
-                    if node in bnode.keys():
-                        cnt += 1
-                tot += cnt
-                if cnt == 1:
-                    result["o%d_%d" % (lvl, lvl-1)] += 1
-                if cnt > result["alpha%d_%d" % (lvl, lvl-1)]:
-                    result["alpha%d_%d" % (lvl, lvl-1)] = cnt
-                    if lvl < 4:
-                        result["beta%d_%d" % (lvl, lvl-1)] = len(node.keys())
-                if lvl < 4 and node == alpha:
-                    result["beta%d_%d" % (lvl, lvl+1)] = cnt
-
-            result["myu%d_%d" % (lvl, lvl-1)] = tot/len(sub_g_a)
-
-        if lvl < 4:
-            temp = sub_g_a
-            sub_g_a = []
-            for item in [key.values() for key in temp]:
-                sub_g_a.extend(item)
-            sub_g_b = temp
-        lvl += 1
+    for i in range(len(graphlet.levels)):
+        result["n%d" % (i+1)] = len(graphlet.levels[i])
+        if i < 4:
+            result["o%d_%d" % (i+1, i+2)] = 0
+            result["alpha%d_%d" % (i+1, i+2)] = 0
+            tot = 0.0
+            for node in graphlet.levels[i]:
+                tot += len(node.forward)
+                if len(node.forward) == 1:
+                    result["o%d_%d" % (i+1, i+2)] += 1
+                if len(node.forward) > result["alpha%d_%d" % (i+1, i+2)]:
+                    result["alpha%d_%d" % (i+1, i+2)] = len(node.forward)
+                    alpha1 = node
+            result["myu%d_%d" % (i+1, i+2)] = tot/len(graphlet.levels[i])
+            result["beta%d_%d" % (i+1, i+2)] = len(alpha1.backward)
+        if i > 0:
+            result["o%d_%d" % (i+1, i)] = 0
+            result["alpha%d_%d" % (i+1, i)] = 0
+            tot = 0.0
+            for node in graphlet.levels[i]:
+                tot += len(node.backward)
+                if len(node.backward) == 1:
+                    result["o%d_%d" % (i+1, i)] += 1
+                if len(node.backward) > result["alpha%d_%d" % (i+1, i)]:
+                    result["alpha%d_%d" % (i+1, i)] = len(node.backward)
+                    alpha2 = node
+            result["myu%d_%d" % (i+1, i)] = tot/len(graphlet.levels[i])
+            result["beta%d_%d" % (i+1, i)] = len(alpha2.forward)
 
     return result
 
 
-
 capture_summaries = pyshark.FileCapture("Test28_Id1_Stream1_100.pcap", only_summaries=True, display_filter="tcp.flags.syn == 1 and tcp.flags.ack == 1")
-# graphlet_dict = get_host_graphlet_dict_summ(capture_summaries)
-# feature_dict = {}
-# for graphlet_host in graphlet_dict.keys():
-#     feature_dict[graphlet_host] = get_graphlet_features(graphlet_dict[graphlet_host])
 graphlet_list = get_host_graphlets(capture_summaries)
 feature_dict = {}
 for graphlet in graphlet_list:
