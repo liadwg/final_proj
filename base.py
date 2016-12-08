@@ -49,9 +49,9 @@ def get_host_graphlets(cap_file):
             src_node.forward.append(proto_node)
             graphlet.levels[1].append(proto_node)
 
-        dst_node = get_from_list(graphlet.levels[2], packet.protocol)
+        dst_node = get_from_list(graphlet.levels[2], packet.destination)
         if dst_node is None:
-            dst_node = Node(packet.protocol)
+            dst_node = Node(packet.destination)
             dst_node.backward.append(proto_node)
             proto_node.forward.append(dst_node)
             graphlet.levels[2].append(dst_node)
@@ -73,6 +73,58 @@ def get_host_graphlets(cap_file):
 
     return graphlet_list
 
+
+def get_host_graphlets_full_cap(cap_file):
+    graphlet_list = []
+    seen_flows = set()
+    for packet in cap_file:
+        if float(packet.time) < 60:
+            seen_flows.add((packet.source, packet.destination))
+            continue
+
+        if (packet.source, packet.destination) or (packet.source, packet.destination) in seen_flows:
+            continue
+
+        # first time we encountered this flow (not including first 60 secs), destination is host
+        graphlet = get_from_list(graphlet_list, packet.destination)
+        if graphlet is None:
+            graphlet = Graphlet(packet.destination, 5)
+            dst_node = Node(packet.destination)
+            graphlet.levels[0].append(dst_node)
+            graphlet_list.append(graphlet)
+
+        proto_node = get_from_list(graphlet.levels[1], packet.protocol)
+        if proto_node is None:
+            proto_node = Node(packet.protocol)
+            proto_node.backward.append(dst_node)
+            dst_node.forward.append(proto_node)
+            graphlet.levels[1].append(proto_node)
+
+        src_node = get_from_list(graphlet.levels[2], packet.source)
+        if src_node is None:
+            src_node = Node(packet.source)
+            src_node.backward.append(proto_node)
+            proto_node.forward.append(src_node)
+            graphlet.levels[2].append(src_node)
+
+        src_port, dst_port = get_ports_from_info(packet)
+        dst_port_node = get_from_list(graphlet.levels[3], dst_port)
+        if dst_port_node is None:
+            dst_port_node = Node(dst_port)
+            dst_port_node.backward.append(src_node)
+            src_node.forward.append(dst_port_node)
+            graphlet.levels[3].append(dst_port_node)
+
+        src_port_node = get_from_list(graphlet.levels[4], src_port)
+        if src_port_node is None:
+            src_port_node = Node(dst_port)
+            src_port_node.backward.append(dst_port_node)
+            dst_port_node.forward.append(src_port_node)
+            graphlet.levels[4].append(src_port_node)
+
+    return graphlet_list
+
+
 # feature name map:
 # n - number of nodes
 # o - number of one degree nodes
@@ -83,7 +135,7 @@ def get_graphlet_features(graphlet):
     result = {}
     for i in range(len(graphlet.levels)):
         result["n%d" % (i+1)] = len(graphlet.levels[i])
-        if i < 4:
+        if i < len(graphlet.levels) - 1:
             result["o%d_%d" % (i+1, i+2)] = 0
             result["alpha%d_%d" % (i+1, i+2)] = 0
             tot = 0.0
@@ -113,7 +165,8 @@ def get_graphlet_features(graphlet):
     return result
 
 
-# TODO - remove display filter (only TCP connection :\ ), write function that decides who is the host..
+# TODO - remove display filter - only TCP connection.. and use full cap
+# TODO - can use get_host_graphlets_full_cap for long cap (significantly longer than 60 secs)
 capture_summaries = pyshark.FileCapture("Test28_Id1_Stream1_100.pcap", only_summaries=True, display_filter="tcp.flags.syn == 1 and tcp.flags.ack == 1")
 graphlet_list = get_host_graphlets(capture_summaries)
 feature_dict = {}
