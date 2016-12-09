@@ -1,4 +1,5 @@
 import pyshark
+import abcus
 
 
 class Node:
@@ -161,7 +162,10 @@ def get_graphlet_features(graphlet):
                     alpha2 = node
             result["myu%d_%d" % (i+1, i)] = tot/len(graphlet.levels[i])
             result["beta%d_%d" % (i+1, i)] = len(alpha2.forward)
-
+    tcp_bins, udp_bins = abcus.create_psize_histograms(graphlet.name)
+    for k in range(12):
+        result["T_bin%d" % (k)] = tcp_bins[k]
+        result["U_bin%d" % (k)] = udp_bins[k]
     return result
 
 
@@ -172,3 +176,5 @@ graphlet_list = get_host_graphlets(capture_summaries)
 feature_dict = {}
 for graphlet in graphlet_list:
     feature_dict[graphlet.name] = get_graphlet_features(graphlet)
+
+
