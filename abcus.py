@@ -23,6 +23,7 @@ def create_psize_histograms(hosts):
         for p in host_packets:
             add_packet_size_to_hist(int(p.length), p.protocol)
 
+
 create_psize_histograms(TEST_HOSTS)
 print(UDP_BINS)
 print(TCP_BINS)
