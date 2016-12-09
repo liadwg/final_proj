@@ -2,10 +2,6 @@ import math
 import pyshark
 
 
-
-TEST_HOST = '216.58.210.66'
-
-
 def create_psize_histograms(host):
     tcp_bins = [0 for i in range(12)]
     udp_bins = [0 for i in range(12)]
