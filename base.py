@@ -171,10 +171,10 @@ def get_graphlet_features(graphlet):
 
 # TODO - remove display filter - only TCP connection.. and use full cap
 # TODO - can use get_host_graphlets_full_cap for long cap (significantly longer than 60 secs)
-capture_summaries = pyshark.FileCapture("Test28_Id1_Stream1_100.pcap", only_summaries=True, display_filter="tcp.flags.syn == 1 and tcp.flags.ack == 1")
-graphlet_list = get_host_graphlets(capture_summaries)
-feature_dict = {}
-for graphlet in graphlet_list:
-    feature_dict[graphlet.name] = get_graphlet_features(graphlet)
+# capture_summaries = pyshark.FileCapture("Test28_Id1_Stream1_100.pcap", only_summaries=True, display_filter="tcp.flags.syn == 1 and tcp.flags.ack == 1")
+# graphlet_list = get_host_graphlets(capture_summaries)
+# feature_dict = {}
+# for graphlet in graphlet_list:
+#     feature_dict[graphlet.name] = get_graphlet_features(graphlet)
 
 
